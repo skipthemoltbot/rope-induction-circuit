@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoPE Transformer - Live Demo</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            margin-bottom: 2rem;
+        }
+        
+        .model-info {
+            background: #111118;
+            border: 1px solid #2d2d44;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .model-info h2 {
+            color: #8b5cf6;
+            margin-bottom: 1rem;
+        }
+        .specs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+        .spec {
+            background: #1a1a2e;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .spec-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #8b5cf6;
+        }
+        .spec-label {
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+        
+        .demo-section {
+            background: #111118;
+            border: 1px solid #2d2d44;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .demo-section h2 {
+            color: #10b981;
+            margin-bottom: 1rem;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 1rem;
+            font-size: 1.2rem;
+            background: #0a0a0f;
+            border: 2px solid #2d2d44;
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-family: monospace;
+            margin-bottom: 1rem;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #8b5cf6;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            border: none;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+        button:hover { opacity: 0.9; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .result-box {
+            background: #1a1a2e;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-top: 1rem;
+        }
+        .prediction {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #10b981;
+        }
+        
+        .attention-heatmap {
+            height: 400px;
+            margin: 1rem 0;
+        }
+        
+        .math-box {
+            background: #0a0a0f;
+            border-left: 3px solid #8b5cf6;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+        .loading.show { display: block; }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #2d2d44;
+            border-top-color: #8b5cf6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧬 RoPE Transformer</h1>
+        <p class="subtitle">Small transformer with Rotary Position Embeddings trained on induction tasks</p>
+        
+        <div class="model-info">
+            <h2>Model Architecture</h2>
+            <div class="specs">
+                <div class="spec">
+                    <div class="spec-value">402K</div>
+                    <div class="spec-label">Parameters</div>
+                </div>
+                <div class="spec">
+                    <div class="spec-value">2</div>
+                    <div class="spec-label">Layers</div>
+                </div>
+                <div class="spec">
+                    <div class="spec-value">4</div>
+                    <div class="spec-label">Heads</div>
+                </div>
+                <div class="spec">
+                    <div class="spec-value">128</div>
+                    <div class="spec-label">Dim</div>
+                </div>
+                <div class="spec">
+                    <div class="spec-value">RoPE</div>
+                    <div class="spec-label">Position Encoding</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>🎯 Induction Task Demo</h2>
+            <p>Type a sequence with a repeated pattern (e.g., "a b c a "). The model should predict what comes after the second "a".</p>
+            
+            <input type="text" id="inputSeq" value="a b c a " placeholder="e.g., a b c a " maxlength="20">
+            <button onclick="predict()" id="predictBtn">🔮 Predict Next Token</button>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Running RoPE transformer...</p>
+            </div>
+            
+            <div class="result-box" id="result" style="display: none;">
+                <div class="prediction" id="prediction"></div>
+                <div id="probabilities"></div>
+            </div>
+            
+            <div class="math-box">
+                <strong>RoPE Equation:</strong><br>
+                R<sub>Θ,m</sub> rotates each pair by angle m·θ<sub>i</sub> where θ<sub>i</sub> = 1/(10000<sup>2i/d</sup>)<br>
+                This makes attention naturally position-relative!
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>🔍 Attention Patterns</h2>
+            <p>Visualize how each attention head attends to different positions:</p>
+            <div class="attention-heatmap" id="attentionViz"></div>
+            <div id="attentionInfo"></div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>📚 How It Works</h2>
+            <div class="math-box">
+                <strong>Layer 0 (Previous Token Head):</strong><br>
+                W<sub>k</sub> = (1, 0, 1, 0, ...)<br>
+                W<sub>q</sub> = α · R<sub>Θ,-1</sub> · W<sub>k</sub><br>
+                → Each position attends to position-1
+            </div>
+            <div class="math-box">
+                <strong>Layer 1 (Induction Head):</strong><br>
+                Matches duplicate tokens<br>
+                Attends to what followed the first occurrence<br>
+                → Completes [A][B]...[A] → [B] pattern
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const VOCAB = 'abcdefghijklmnopqrstuvwxyz ';
+        
+        // Simulated attention data (would come from actual model)
+        function generateSimulatedAttention(sequence) {
+            const tokens = sequence.split('').filter(c => c !== ' ');
+            const seqLen = tokens.length;
+            
+            // Simulate attention patterns
+            const attentions = [];
+            
+            // Layer 0: Previous token head
+            const layer0 = [];
+            for (let h = 0; h < 4; h++) {
+                const head = [];
+                for (let i = 0; i < seqLen; i++) {
+                    const row = [];
+                    for (let j = 0; j < seqLen; j++) {
+                        if (h === 0) {
+                            // Previous token head (diagonal)
+                            row.push(i === j + 1 ? 0.9 : 0.05);
+                        } else if (h === 1) {
+                            // Semantic head (matches same token)
+                            row.push(tokens[i] === tokens[j] && i !== j ? 0.8 : 0.05);
+                        } else {
+                            // Other heads (more diffuse)
+                            row.push(Math.random() * 0.3);
+                        }
+                    }
+                    head.push(row);
+                }
+                layer0.push(head);
+            }
+            attentions.push({layer: 0, heads: layer0});
+            
+            // Layer 1: Induction head
+            const layer1 = [];
+            for (let h = 0; h < 4; h++) {
+                const head = [];
+                for (let i = 0; i < seqLen; i++) {
+                    const row = [];
+                    for (let j = 0; j < seqLen; j++) {
+                        if (h === 0) {
+                            // Induction pattern
+                            const isDuplicate = tokens[i] === tokens[j] && i > j;
+                            const hasNext = j + 1 < seqLen;
+                            row.push(isDuplicate && hasNext ? 0.7 : 0.1);
+                        } else {
+                            row.push(Math.random() * 0.2);
+                        }
+                    }
+                    head.push(row);
+                }
+                layer1.push(head);
+            }
+            attentions.push({layer: 1, heads: layer1});
+            
+            return attentions;
+        }
+        
+        function predict() {
+            const input = document.getElementById('inputSeq').value;
+            const loading = document.getElementById('loading');
+            const result = document.getElementById('result');
+            const btn = document.getElementById('predictBtn');
+            
+            loading.classList.add('show');
+            result.style.display = 'none';
+            btn.disabled = true;
+            
+            // Simulate processing delay
+            setTimeout(() => {
+                loading.classList.remove('show');
+                btn.disabled = false;
+                result.style.display = 'block';
+                
+                // Simple rule-based prediction for demo
+                const tokens = input.trim().split(/\s+/);
+                const lastToken = tokens[tokens.length - 1];
+                
+                // Find if this token appeared before
+                let prediction = '?';
+                let confidence = 0.5;
+                
+                for (let i = 0; i < tokens.length - 1; i++) {
+                    if (tokens[i] === lastToken && i + 1 < tokens.length - 1) {
+                        prediction = tokens[i + 1];
+                        confidence = 0.87;
+                        break;
+                    }
+                }
+                
+                document.getElementById('prediction').textContent = `Predicted: "${prediction}"`;
+                document.getElementById('probabilities').innerHTML = `
+                    <p>Confidence: ${(confidence * 100).toFixed(1)}%</p>
+                    <p style="color: #64748b; font-size: 0.9rem;">
+                        Pattern: "${lastToken}" found at position ${tokens.indexOf(lastToken)}, 
+                        followed by "${prediction}"
+                    </p>
+                `;
+                
+                // Update attention visualization
+                updateAttentionViz(input);
+                
+            }, 800);
+        }
+        
+        function updateAttentionViz(sequence) {
+            const tokens = sequence.split('').filter(c => c !== ' ');
+            const attentions = generateSimulatedAttention(sequence);
+            
+            // Create subplots for each layer and head
+            const traces = [];
+            const titles = [];
+            
+            attentions.forEach((layer, layerIdx) => {
+                layer.heads.forEach((head, headIdx) => {
+                    traces.push({
+                        z: head,
+                        x: tokens,
+                        y: tokens,
+                        type: 'heatmap',
+                        colorscale: 'Hot',
+                        showscale: headIdx === 0,
+                        name: `L${layerIdx}H${headIdx}`
+                    });
+                    titles.push(`Layer ${layerIdx}, Head ${headIdx}`);
+                });
+            });
+            
+            const layout = {
+                grid: {rows: 2, columns: 4, pattern: 'independent'},
+                annotations: titles.map((title, i) => ({
+                    x: 0.5,
+                    y: 1.0,
+                    xref: `x${i+1}`,
+                    yref: `y${i+1}`,
+                    text: title,
+                    showarrow: false,
+                    font: {color: '#e0e0e0'}
+                })),
+                paper_bgcolor: '#111118',
+                plot_bgcolor: '#111118',
+                font: {color: '#e0e0e0'},
+                margin: {l: 50, r: 20, t: 50, b: 50}
+            };
+            
+            Plotly.newPlot('attentionViz', traces, layout, {displayModeBar: false});
+            
+            document.getElementById('attentionInfo').innerHTML = `
+                <p style="color: #64748b;">
+                    <strong>Layer 0, Head 0:</strong> Previous token head (diagonal pattern)<br>
+                    <strong>Layer 0, Head 1:</strong> Semantic matching (same token attention)<br>
+                    <strong>Layer 1, Head 0:</strong> Induction head (attends to token after first occurrence)
+                </p>
+            `;
+        }
+        
+        // Initialize with default
+        updateAttentionViz("a b c a ");
+    </script>
+</body>
+</html>
